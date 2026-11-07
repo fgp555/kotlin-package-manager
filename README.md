@@ -37,6 +37,20 @@ La CLI evita duplicados, rechaza conflictos de versión explícitos y ejecuta
 el wrapper del proyecto (`kotlin build` o `gradlew build`) una vez tras procesar todos los artefactos. Si el build falla,
 conserva el cambio en el archivo de dependencias y devuelve el código de salida del wrapper.
 
+## Desarrollo con Compose Desktop
+
+Desde el proyecto, ejecuta:
+
+```powershell
+kpm run dev
+kpm run dev -n
+kpm run dev --noDevTools
+```
+
+KPM abre el visor con Hot Reload. `-n` (alias de `--noDevTools`) oculta el panel flotante
+y mantiene la recarga al guardar. En Kotlin Toolchain usa el módulo
+`desktopApp` y en Gradle ejecuta la tarea `hotRun` con recarga automática.
+
 ## Repositorio y autoría
 
 - Repositorio oficial en [GitHub](https://github.com/fgp555/kotlin-package-manager).

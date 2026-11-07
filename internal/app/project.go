@@ -116,7 +116,7 @@ func (p project) target(module string, input *bufio.Reader) (string, error) {
 	return filepath.Join(p.root, chosen, p.manifest), nil
 }
 
-func (p project) buildCommand() (*exec.Cmd, error) {
+func (p project) wrapperCommand(args ...string) (*exec.Cmd, error) {
 	wrapper := p.wrapper
 	if runtime.GOOS == "windows" {
 		wrapper += ".bat"
@@ -125,9 +125,9 @@ func (p project) buildCommand() (*exec.Cmd, error) {
 	if _, err := os.Stat(path); err != nil {
 		return nil, err
 	}
-	command := exec.Command(path, "build")
+	command := exec.Command(path, args...)
 	if runtime.GOOS == "windows" {
-		command = exec.Command("cmd.exe", "/d", "/c", ".\\"+wrapper, "build")
+		command = exec.Command("cmd.exe", append([]string{"/d", "/c", ".\\" + wrapper}, args...)...)
 	}
 	command.Dir = p.root
 	command.Stdin, command.Stdout, command.Stderr = os.Stdin, os.Stdout, os.Stderr
