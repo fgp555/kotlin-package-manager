@@ -47,6 +47,8 @@ kpm run dev --devTools
 kpm run dev --noLogs
 ```
 
+Con el visor abierto, pulsa **R** en la terminal para reiniciarlo o **Ctrl+C** para cerrarlo.
+
 El panel flotante queda oculto por defecto. Usa `--devTools` para mostrarlo.
 `-n` y `--noDevTools` siguen siendo válidos para ocultarlo.
 

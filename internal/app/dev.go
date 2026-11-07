@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"os/exec"
 	"time"
 )
 
@@ -49,19 +48,12 @@ func runDev(args []string) error {
 		wrapperArgs = append(wrapperArgs, "--jvm-args=-Dcompose.reload.devToolsEnabled=false")
 	}
 
-	command, err := p.wrapperCommand(wrapperArgs...)
-	if err != nil {
-		return err
-	}
-	if p.gradle && !*noLogs {
-		return runGradleDev(p.root, command)
-	}
-	return command.Run()
+	return runDevSessions(p, wrapperArgs, p.gradle && !*noLogs)
 }
 
 // Record existing logs before starting Gradle so the terminal only shows this
 // session's output, including a log created after the wrapper starts.
-func runGradleDev(root string, command *exec.Cmd) error {
+func runGradleDev(root string, run func() error) error {
 	paths, err := hotReloadLogPaths(root)
 	if err != nil {
 		return err
@@ -79,9 +71,6 @@ func runGradleDev(root string, command *exec.Cmd) error {
 		cursors = append(cursors, cursor)
 	}
 
-	if err := command.Start(); err != nil {
-		return err
-	}
 	done := make(chan struct{})
 	finished := make(chan struct{})
 	go func() {
@@ -116,7 +105,7 @@ func runGradleDev(root string, command *exec.Cmd) error {
 			fmt.Fprintln(os.Stderr, "kpm: Hot Reload log:", err)
 		}
 	}()
-	err = command.Wait()
+	err = run()
 	close(done)
 	<-finished
 	return err
