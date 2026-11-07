@@ -1,4 +1,4 @@
-module kotlin-package-manager
+module kotlin-package-manager/kpm
 
 go 1.23
 

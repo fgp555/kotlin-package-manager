@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"flag"
@@ -9,23 +10,22 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
-const usage = "Usage: kt add <alias|group:artifact:version> [-m module]"
-
-var aliases = map[string][]string{
-	"coil": {
-		"io.coil-kt.coil3:coil-compose:3.6.3",
-		"io.coil-kt.coil3:coil-network-okhttp:3.6.3",
-	},
-}
+const version = "0.1.0"
+const usage = "Usage: kpm add <artifact|group:artifact[:version]>... [-m module]\n       kpm version\n       kpm help"
 
 func Run(args []string) error {
-	if len(args) == 0 || args[0] == "--help" || args[0] == "-h" {
+	if len(args) == 0 || (len(args) == 1 && args[0] == "help") || args[0] == "--help" || args[0] == "-h" {
 		fmt.Println(usage)
+		return nil
+	}
+	if len(args) == 1 && (args[0] == "version" || args[0] == "--version") {
+		fmt.Println("kpm", version)
 		return nil
 	}
 	if args[0] != "add" || len(args) < 2 {
@@ -38,45 +38,43 @@ func Run(args []string) error {
 
 	flags := flag.NewFlagSet("add", flag.ContinueOnError)
 	module := flags.String("m", "shared", "module directory relative to the project root")
-	if err := flags.Parse(args[2:]); err != nil {
+	names := args[1:]
+	optionStart := slices.IndexFunc(names, func(arg string) bool { return strings.HasPrefix(arg, "-") })
+	var optionArgs []string
+	if optionStart >= 0 {
+		names, optionArgs = names[:optionStart], names[optionStart:]
+	}
+	if err := flags.Parse(optionArgs); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}
 		return err
 	}
-	if flags.NArg() != 0 || !filepath.IsLocal(*module) {
+	if len(names) == 0 || flags.NArg() != 0 || !filepath.IsLocal(*module) {
 		return errors.New(usage)
 	}
 
-	dependencies, err := resolve(args[1])
-	if err != nil {
-		return err
-	}
 	root, err := projectRoot()
 	if err != nil {
 		return err
 	}
 	manifest := filepath.Join(root, *module, "module.yaml")
+	if _, err := os.Stat(manifest); err != nil {
+		return err
+	}
+	input := bufio.NewReader(os.Stdin)
+	dependencies := make([]string, 0, len(names))
+	for _, name := range names {
+		coordinate, err := resolve(name, input)
+		if err != nil {
+			return err
+		}
+		dependencies = append(dependencies, coordinate)
+	}
 	if err := addDependencies(manifest, dependencies); err != nil {
 		return err
 	}
 	return build(root)
-}
-
-func resolve(name string) ([]string, error) {
-	if dependencies, ok := aliases[name]; ok {
-		return dependencies, nil
-	}
-	parts := strings.Split(name, ":")
-	if len(parts) != 3 || strings.ContainsAny(name, " \t\r\n") {
-		return nil, fmt.Errorf("unknown alias or invalid Maven coordinate %q; use group:artifact:version", name)
-	}
-	for _, part := range parts {
-		if part == "" {
-			return nil, fmt.Errorf("invalid Maven coordinate %q", name)
-		}
-	}
-	return []string{name}, nil
 }
 
 func projectRoot() (string, error) {
@@ -183,7 +181,7 @@ func replaceFile(path string, content []byte) error {
 	if err != nil {
 		return err
 	}
-	temp, err := os.CreateTemp(filepath.Dir(path), ".kt-module-*")
+	temp, err := os.CreateTemp(filepath.Dir(path), ".kpm-module-*")
 	if err != nil {
 		return err
 	}

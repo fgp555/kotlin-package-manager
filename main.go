@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/exec"
 
-	"kotlin-package-manager/internal/app"
+	"kotlin-package-manager/kpm/internal/app"
 )
 
 func main() {
@@ -15,7 +15,7 @@ func main() {
 		if errors.As(err, &exit) {
 			os.Exit(exit.ExitCode())
 		}
-		fmt.Fprintln(os.Stderr, "kt:", err)
+		fmt.Fprintln(os.Stderr, "kpm:", err)
 		os.Exit(1)
 	}
 }
