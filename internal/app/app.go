@@ -7,9 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 
@@ -17,7 +15,7 @@ import (
 )
 
 const version = "0.1.0"
-const usage = "Usage: kpm add <artifact|group:artifact[:version]>... [-m module]\n       kpm version\n       kpm help"
+const usage = "Usage: kpm add <artifact|group:artifact[:version]>... [-m module] [--source-set name]\n       kpm version\n       kpm help"
 
 func Run(args []string) error {
 	if len(args) == 0 || (len(args) == 1 && args[0] == "help") || args[0] == "--help" || args[0] == "-h" {
@@ -37,7 +35,8 @@ func Run(args []string) error {
 	}
 
 	flags := flag.NewFlagSet("add", flag.ContinueOnError)
-	module := flags.String("m", "shared", "module directory relative to the project root")
+	module := flags.String("m", "", "module directory relative to the project root")
+	sourceSet := flags.String("source-set", "", "Gradle Kotlin source set")
 	names := args[1:]
 	optionStart := slices.IndexFunc(names, func(arg string) bool { return strings.HasPrefix(arg, "-") })
 	var optionArgs []string
@@ -50,19 +49,27 @@ func Run(args []string) error {
 		}
 		return err
 	}
-	if len(names) == 0 || flags.NArg() != 0 || !filepath.IsLocal(*module) {
+	if len(names) == 0 || flags.NArg() != 0 || (*module != "" && !filepath.IsLocal(*module)) {
 		return errors.New(usage)
 	}
 
-	root, err := projectRoot()
+	p, err := findProject()
 	if err != nil {
 		return err
 	}
-	manifest := filepath.Join(root, *module, "module.yaml")
-	if _, err := os.Stat(manifest); err != nil {
-		return err
+	if !p.gradle && *sourceSet != "" {
+		return errors.New("--source-set requires a Gradle project")
 	}
 	input := bufio.NewReader(os.Stdin)
+	manifest, err := p.target(*module, input)
+	if err != nil {
+		return err
+	}
+	command, err := p.buildCommand()
+	if err != nil {
+		return err
+	}
+
 	dependencies := make([]string, 0, len(names))
 	for _, name := range names {
 		coordinate, err := resolve(name, input)
@@ -71,31 +78,16 @@ func Run(args []string) error {
 		}
 		dependencies = append(dependencies, coordinate)
 	}
-	if err := addDependencies(manifest, dependencies); err != nil {
+	if p.gradle {
+		err = addGradleDependencies(manifest, *sourceSet, dependencies)
+	} else {
+		fmt.Println("Target:", manifest)
+		err = addDependencies(manifest, dependencies)
+	}
+	if err != nil {
 		return err
 	}
-	return build(root)
-}
-
-func projectRoot() (string, error) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	for {
-		_, err := os.Stat(filepath.Join(dir, "project.yaml"))
-		if err == nil {
-			return dir, nil
-		}
-		if !os.IsNotExist(err) {
-			return "", err
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return "", errors.New("project.yaml not found; run inside a Kotlin Toolchain project")
-		}
-		dir = parent
-	}
+	return command.Run()
 }
 
 func addDependencies(path string, coordinates []string) error {
@@ -197,22 +189,4 @@ func replaceFile(path string, content []byte) error {
 		return err
 	}
 	return os.Rename(temp.Name(), path)
-}
-
-func build(root string) error {
-	wrapper := "kotlin"
-	if runtime.GOOS == "windows" {
-		wrapper = "kotlin.bat"
-	}
-	path := filepath.Join(root, wrapper)
-	if _, err := os.Stat(path); err != nil {
-		return err
-	}
-	command := exec.Command(path, "build")
-	if runtime.GOOS == "windows" {
-		command = exec.Command("cmd.exe", "/d", "/c", ".\\kotlin.bat", "build")
-	}
-	command.Dir = root
-	command.Stdin, command.Stdout, command.Stderr = os.Stdin, os.Stdout, os.Stderr
-	return command.Run()
 }

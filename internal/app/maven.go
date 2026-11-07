@@ -97,9 +97,21 @@ func selectGroup(artifact string, input *bufio.Reader) (string, error) {
 		options = append(options, group)
 	}
 	sort.Strings(options)
-	fmt.Fprintf(os.Stderr, "Multiple Maven Central artifacts match %s:\n", artifact)
-	for index, group := range options {
-		fmt.Fprintf(os.Stderr, "  %d. %s:%s\n", index+1, group, artifact)
+	for i, group := range options {
+		options[i] = group + ":" + artifact
+	}
+	selected, err := selectOption("Multiple Maven Central artifacts match "+artifact+":", options, input)
+	if err != nil {
+		return "", fmt.Errorf("%w; specify group:artifact to skip the prompt", err)
+	}
+	group, _, _ := strings.Cut(selected, ":")
+	return group, nil
+}
+
+func selectOption(label string, options []string, input *bufio.Reader) (string, error) {
+	fmt.Fprintln(os.Stderr, label)
+	for index, option := range options {
+		fmt.Fprintf(os.Stderr, "  %d. %s\n", index+1, option)
 	}
 	fmt.Fprint(os.Stderr, "Select a number: ")
 	line, err := input.ReadString('\n')
@@ -108,7 +120,7 @@ func selectGroup(artifact string, input *bufio.Reader) (string, error) {
 	}
 	choice, err := strconv.Atoi(strings.TrimSpace(line))
 	if err != nil || choice < 1 || choice > len(options) {
-		return "", fmt.Errorf("invalid selection for %s; specify group:artifact to skip the prompt", artifact)
+		return "", fmt.Errorf("invalid selection")
 	}
 	return options[choice-1], nil
 }
