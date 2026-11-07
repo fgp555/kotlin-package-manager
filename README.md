@@ -43,13 +43,32 @@ Desde el proyecto, ejecuta:
 
 ```powershell
 kpm run dev
-kpm run dev -n
-kpm run dev --noDevTools
+kpm run dev --devTools
+kpm run dev --noLogs
 ```
 
-KPM abre el visor con Hot Reload. `-n` (alias de `--noDevTools`) oculta el panel flotante
-y mantiene la recarga al guardar. En Kotlin Toolchain usa el módulo
-`desktopApp` y en Gradle ejecuta la tarea `hotRun` con recarga automática.
+El panel flotante queda oculto por defecto. Usa `--devTools` para mostrarlo.
+`-n` y `--noDevTools` siguen siendo válidos para ocultarlo.
+
+En Gradle, la terminal muestra el arranque y sigue el registro de Hot Reload.
+`--noLogs` omite ese seguimiento y conserva la salida del wrapper.
+En Kotlin Toolchain, la terminal muestra la salida nativa del wrapper en ambos casos.
+
+## Registro de Hot Reload en Gradle
+
+```powershell
+kpm log
+kpm log -n 30
+kpm log -n 30 -f
+```
+
+`kpm log` muestra las últimas 30 líneas por defecto. Usa `-n` o `--lines`
+para elegir cuántas líneas ver y `-f` o `--follow` para seguir el registro
+hasta pulsar Ctrl+C. Usa `kpm log -nf` como atajo de `kpm log -n 0 -f` para ver solo lo nuevo.
+
+KPM lee el `build/run/main/main.chr.log` más reciente de la raíz de Gradle
+o sus módulos directos. En Kotlin Toolchain, consulta la terminal de
+`kpm run dev`.
 
 ## Repositorio y autoría
 

@@ -15,7 +15,7 @@ import (
 )
 
 const version = "0.1.0"
-const usage = "Usage: kpm add <artifact|group:artifact[:version]>... [-m module] [--source-set name]\n       kpm run dev [-n|--noDevTools]\n       kpm version\n       kpm help"
+const usage = "Usage: kpm add <artifact|group:artifact[:version]>... [-m module] [--source-set name]\n       " + devUsage + "\n       kpm log [-n lines] [-f] | kpm log -nf\n       kpm version\n       kpm help"
 
 func Run(args []string) error {
 	if len(args) == 0 || (len(args) == 1 && args[0] == "help") || args[0] == "--help" || args[0] == "-h" {
@@ -25,6 +25,9 @@ func Run(args []string) error {
 	if len(args) == 1 && (args[0] == "version" || args[0] == "--version") {
 		fmt.Println("kpm", version)
 		return nil
+	}
+	if args[0] == "log" {
+		return runLog(args[1:])
 	}
 	if args[0] == "run" {
 		return runDev(args[1:])
